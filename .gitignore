@@ -1,0 +1,26 @@
+# dependencies
+node_modules/
+
+# cloudflare
+.wrangler/
+.dev.vars
+
+# build
+dist/
+*.tsbuildinfo
+
+# env
+.env
+.env.*
+
+# os
+.DS_Store
+Thumbs.db
+
+# claude code
+.claude/settings.local.json
+
+# editor
+.vscode/*
+!.vscode/extensions.json
+.idea/

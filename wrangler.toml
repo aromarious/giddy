@@ -1,0 +1,31 @@
+name = "giddy"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+# --- 全環境共通の設定 ---
+[vars]
+AI_MODEL = "claude-haiku-4-5-20251001"
+
+# --- Production ---
+# 環境固有の値（GITHUB_APP_ID 等）は Infisical から Sync
+[env.production]
+name = "giddy"
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "giddy"
+database_id = "xxxxxxxx-prod"
+
+# --- Dev ---
+[env.dev]
+name = "giddy-dev"
+
+[[env.dev.d1_databases]]
+binding = "DB"
+database_name = "giddy-dev"
+database_id = "xxxxxxxx-dev"
