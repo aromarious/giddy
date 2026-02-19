@@ -12,14 +12,14 @@ head_sampling_rate = 1
 AI_MODEL = "claude-haiku-4-5-20251001"
 
 # --- Production ---
-# 環境固有の値（GITHUB_APP_ID 等）は Infisical から Sync
+# 環境固有の値（GITHUB_APP_ID 等）は Doppler から Sync
 [env.production]
 name = "giddy"
 
 [[env.production.d1_databases]]
 binding = "DB"
 database_name = "giddy"
-database_id = "xxxxxxxx-prod"
+database_id = "48c52678-3c1a-4e0b-86eb-010d1a371285"
 
 # --- Dev ---
 [env.dev]
@@ -28,4 +28,4 @@ name = "giddy-dev"
 [[env.dev.d1_databases]]
 binding = "DB"
 database_name = "giddy-dev"
-database_id = "xxxxxxxx-dev"
+database_id = "4b0da723-8064-48db-b7ef-d822ad87d306"
