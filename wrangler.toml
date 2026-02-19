@@ -1,5 +1,6 @@
 name = "giddy"
 main = "src/index.ts"
+account_id = "3520174036b3ede4925175a8d03f8d73"
 compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_compat"]
 
@@ -12,7 +13,7 @@ head_sampling_rate = 1
 AI_MODEL = "claude-haiku-4-5-20251001"
 
 # --- Production ---
-# 環境固有の値（GITHUB_APP_ID 等）は Doppler から Sync
+# 環境固有の値（GITHUB_APP_ID 等）は Doppler で管理
 [env.production]
 name = "giddy"
 

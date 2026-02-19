@@ -178,9 +178,9 @@ Phase 8（Claude）機能実装
 
 人間から Cloudflare API Token と Account ID を受け取り次第実行。
 
-- [ ] `wrangler d1 create giddy-dev`
-- [ ] `wrangler d1 create giddy`
-- [ ] 出力された `database_id` を `wrangler.toml` に記入
+- [X] ~~`wrangler d1 create giddy-dev`~~ [2026-02-19]
+- [X] ~~`wrangler d1 create giddy`~~ [2026-02-19]
+- [X] ~~出力された `database_id` を `wrangler.toml` に記入~~ [2026-02-19]
 
 ---
 
@@ -269,9 +269,9 @@ Phase 3 完了後に実施。
 
 ### 6. Doppler セットアップ
 
-- [ ] [Doppler Dashboard](https://dashboard.doppler.com/) → **Create Project** → `giddy`
-- [ ] `dev` / `prod` 環境を作成
-- [ ] 各環境に Phase 1-2 で収集した値を登録:
+- [X] ~~[Doppler Dashboard](https://dashboard.doppler.com/) → **Create Project** → `giddy`~~ [2026-02-19]
+- [X] ~~`dev` / `prod` 環境を作成~~ [2026-02-19]
+- [X] ~~各環境に Phase 1-2 で収集した値を登録:~~ [2026-02-19]
 
 **シークレット:**
 
@@ -293,19 +293,35 @@ Phase 3 完了後に実施。
 | `DISCORD_GUILD_ID` | テスト用サーバー | 本番サーバー |
 | `DISCORD_FORUM_CHANNEL_ID` | テスト用 Forum Channel | 本番 Forum Channel |
 
-### 7. Doppler → Cloudflare Secret Sync
+### 7. Doppler の利用方法
 
-- [ ] Doppler → Integrations → **Cloudflare Workers**
-- [ ] Cloudflare API Token で認証
-- [ ] Sync 設定:
-  - Doppler `dev` → Cloudflare Worker `giddy-dev`
-  - Doppler `prod` → Cloudflare Worker `giddy`
-- [ ] Auto-Sync を有効化
-- [ ] Initial Sync 完了を確認
+Doppler は 3 つの環境で異なる役割を持つ:
 
----
+| 環境 | 方法 | 備考 |
+|---|---|---|
+| ローカル開発 | `doppler run -- wrangler dev` | `.dev.vars` 不要。シークレットをファイルに残さない |
+| CF 開発（`giddy-dev`） | `doppler run -- wrangler secret bulk --env dev` | Doppler → CF Workers に一括反映 |
+| CF 本番（`giddy`） | `doppler run -- wrangler secret bulk --env production` | 同上 |
 
-> **Claude に「Sync 完了」と伝える。**
+#### CF Workers へのシークレット反映（人間タスク）
+
+- [ ] Doppler CLI をインストール: `brew install dopplerhq/cli/doppler`
+- [ ] `doppler login` で認証
+- [ ] `doppler setup` でプロジェクト `giddy` を選択
+- [ ] dev 環境のシークレットを反映:
+  ```bash
+  doppler run --config dev -- wrangler secret bulk --env dev
+  ```
+- [ ] production 環境のシークレットを反映:
+  ```bash
+  doppler run --config prd -- wrangler secret bulk --env production
+  ```
+- [ ] ローカル開発の動作確認:
+  ```bash
+  doppler run --config dev -- wrangler dev
+  ```
+
+> **注意:** Doppler でシークレットを変更した場合は、CF Workers への反映コマンドを再実行する必要がある（自動 Sync ではない）。
 
 ---
 
