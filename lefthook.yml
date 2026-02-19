@@ -6,6 +6,9 @@ pre-commit:
       run: npx biome check --write {staged_files}
       stage_fixed: true
 
+    - name: secretlint
+      run: npx secretlint {staged_files}
+
 commit-msg:
   jobs:
     - name: commitlint
