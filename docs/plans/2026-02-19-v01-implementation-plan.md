@@ -350,8 +350,8 @@ Doppler は 3 つの環境で異なる役割を持つ:
 
 ### 10. Slash Command 登録
 
-- [ ] Claude に登録スクリプト実行を依頼（dev 環境の guild コマンド）
-- [ ] Discord でコマンドが表示されることを確認
+- [X] ~~Claude に登録スクリプト実行を依頼（dev 環境の guild コマンド）~~ [2026-02-20]
+- [X] ~~Discord でコマンドが表示されることを確認~~ [2026-02-20]
 
 ---
 
@@ -362,7 +362,7 @@ Doppler は 3 つの環境で異なる役割を持つ:
 既存の `.github/workflows/ci.yml` は lint + test + security + deploy の構成が完了済み。
 
 - [ ] `wrangler.toml` の `database_id` が実際の値に更新されていることを確認
-- [ ] GitHub Actions Secrets に `CLOUDFLARE_API_TOKEN` を設定（人間タスク）
+- [X] ~~GitHub Actions Secrets に `CLOUDFLARE_API_TOKEN` を設定（人間タスク）~~ [2026-02-20]
 
 ### Phase 7: リリースフロー通し
 
