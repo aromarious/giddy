@@ -20,6 +20,9 @@ Thumbs.db
 # claude code
 .claude/settings.local.json
 
+# serena
+.serena/
+
 # editor
 .vscode/*
 !.vscode/extensions.json

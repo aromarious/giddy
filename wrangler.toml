@@ -8,14 +8,13 @@ compatibility_flags = ["nodejs_compat"]
 enabled = true
 head_sampling_rate = 1
 
-# --- 全環境共通の設定 ---
-[vars]
-AI_MODEL = "claude-haiku-4-5-20251001"
-
 # --- Production ---
 # 環境固有の値（GITHUB_APP_ID 等）は Doppler で管理
 [env.production]
 name = "giddy"
+
+[env.production.vars]
+AI_MODEL = "claude-haiku-4-5-20251001"
 
 [[env.production.d1_databases]]
 binding = "DB"
@@ -25,6 +24,9 @@ database_id = "48c52678-3c1a-4e0b-86eb-010d1a371285"
 # --- Dev ---
 [env.dev]
 name = "giddy-dev"
+
+[env.dev.vars]
+AI_MODEL = "claude-haiku-4-5-20251001"
 
 [[env.dev.d1_databases]]
 binding = "DB"
