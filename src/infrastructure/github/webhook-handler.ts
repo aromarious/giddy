@@ -1,15 +1,17 @@
+import { syncIssueOpened } from "@/application/sync-issue"
+import { D1Repository } from "@/infrastructure/db/d1-repository"
+import { DiscordRestService } from "@/infrastructure/discord/discord-rest"
 import type { Env } from "@/types/env"
 
 async function verifySignature(
-  request: Request,
+  body: string,
+  signature: string | null,
   secret: string
 ): Promise<boolean> {
-  const signature = request.headers.get("x-hub-signature-256")
   if (!signature) {
     return false
   }
 
-  const body = await request.clone().text()
   const encoder = new TextEncoder()
   const key = await crypto.subtle.importKey(
     "raw",
@@ -30,11 +32,65 @@ export async function handleGitHubWebhook(
   request: Request,
   env: Env
 ): Promise<Response> {
-  const valid = await verifySignature(request, env.GITHUB_WEBHOOK_SECRET)
+  const body = await request.text()
+  const signature = request.headers.get("x-hub-signature-256")
+
+  const valid = await verifySignature(
+    body,
+    signature,
+    env.GITHUB_WEBHOOK_SECRET
+  )
   if (!valid) {
     return new Response("Invalid signature", { status: 401 })
   }
 
-  // イベントルーティングは Phase 8 で実装
+  const event = request.headers.get("x-github-event")
+  const deliveryId = request.headers.get("x-github-delivery")
+
+  if (!(event && deliveryId)) {
+    return new Response("Missing event headers", { status: 400 })
+  }
+
+  const payload = JSON.parse(body) as {
+    action?: string
+    issue?: {
+      id: number
+      number: number
+      title: string
+      body: string | null
+      html_url: string
+    }
+    repository?: { full_name: string }
+  }
+
+  try {
+    if (event === "issues" && payload.action === "opened") {
+      const issue = payload.issue
+      const repo = payload.repository?.full_name
+      if (!(issue && repo)) {
+        return new Response("OK", { status: 200 })
+      }
+
+      const discord = new DiscordRestService(env.DISCORD_BOT_TOKEN)
+      const repository = new D1Repository(env.DB)
+
+      await syncIssueOpened(
+        {
+          deliveryId,
+          issueId: issue.id,
+          issueNumber: issue.number,
+          title: issue.title,
+          body: issue.body,
+          repo,
+          htmlUrl: issue.html_url,
+          forumChannelId: env.DISCORD_FORUM_CHANNEL_ID,
+        },
+        { discord, repository }
+      )
+    }
+  } catch (error) {
+    console.error("Webhook processing error:", error)
+  }
+
   return new Response("OK", { status: 200 })
 }
