@@ -337,16 +337,16 @@ Doppler は 3 つの環境で異なる役割を持つ:
 
 ### 8. Discord Interactions Endpoint URL 設定
 
-- [ ] Discord Developer Portal → dev 用 Application → General Information
-- [ ] Interactions Endpoint URL: `https://giddy-dev.<account>.workers.dev/interactions`
-- [ ] **Save Changes** → PING 検証が通ることを確認
-- [ ] 同様に prod 用にも設定
+- [X] ~~Discord Developer Portal → dev 用 Application → General Information~~ [2026-02-20]
+- [X] ~~Interactions Endpoint URL: `https://giddy-dev.<account>.workers.dev/interactions`~~ [2026-02-20]
+- [X] ~~**Save Changes** → PING 検証が通ることを確認~~ [2026-02-20]
+- [X] ~~同様に prod 用にも設定~~ [2026-02-20]
 
 ### 9. GitHub App Webhook URL 更新
 
-- [ ] GitHub → Settings → Developer settings → `Giddy Dev` → Edit
-- [ ] Webhook URL: `https://giddy-dev.<account>.workers.dev/webhooks/github`
-- [ ] 同様に prod 用にも設定
+- [X] ~~GitHub → Settings → Developer settings → `Giddy Dev` → Edit~~ [2026-02-20]
+- [X] ~~Webhook URL: `https://giddy-dev.<account>.workers.dev/webhooks/github`~~ [2026-02-20]
+- [X] ~~同様に prod 用にも設定~~ [2026-02-20]
 
 ### 10. Slash Command 登録
 
