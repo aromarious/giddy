@@ -1,27 +1,16 @@
+import { Hono } from "hono"
 import { discordApp } from "@/infrastructure/discord/app"
 import { handleGitHubWebhook } from "@/infrastructure/github/webhook-handler"
 import type { Env } from "@/types/env"
 
-export default {
-  async fetch(
-    request: Request,
-    env: Env,
-    ctx: ExecutionContext
-  ): Promise<Response> {
-    const url = new URL(request.url)
+const app = new Hono<{ Bindings: Env }>()
 
-    if (request.method === "GET" && url.pathname === "/health") {
-      return Response.json({ status: "ok" })
-    }
+app.get("/health", (c) => c.json({ status: "ok" }))
 
-    if (request.method === "POST" && url.pathname === "/interactions") {
-      return discordApp.fetch(request, env, ctx)
-    }
+app.post("/interactions", (c) =>
+  discordApp.fetch(c.req.raw, c.env, c.executionCtx)
+)
 
-    if (request.method === "POST" && url.pathname === "/webhooks/github") {
-      return await handleGitHubWebhook(request, env)
-    }
+app.post("/webhooks/github", (c) => handleGitHubWebhook(c.req.raw, c.env))
 
-    return new Response("Not Found", { status: 404 })
-  },
-} satisfies ExportedHandler<Env>
+export default app
