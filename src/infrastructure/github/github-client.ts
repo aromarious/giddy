@@ -78,14 +78,20 @@ export class GitHubClient implements GitHubService {
     title: string
     body: string
   }): Promise<{ issueId: number; issueNumber: number }> {
+    // 1. Create issue normally
+    const { issueId, issueNumber } = await this.createIssue({
+      repo: params.repo,
+      title: params.title,
+      body: params.body,
+    })
+    // 2. Link as sub-issue to parent
     const [owner, repo] = params.repo.split("/")
-    const res = await this.request(
+    await this.request(
       "POST",
       `/repos/${owner}/${repo}/issues/${params.parentIssueNumber}/sub_issues`,
-      { title: params.title, body: params.body }
+      { sub_issue_id: issueId }
     )
-    const data = (await res.json()) as { id: number; number: number }
-    return { issueId: data.id, issueNumber: data.number }
+    return { issueId, issueNumber }
   }
 
   async createComment(params: {
