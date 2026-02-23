@@ -11,6 +11,8 @@ import {
   syncIssueEdited,
   syncIssueOpened,
   syncIssueReopened,
+  syncSubIssueAdded,
+  syncSubIssueRemoved,
 } from "./sync-issue"
 
 const TRUNCATED_TITLE_PATTERN = /^#1 A+…$/
@@ -624,5 +626,190 @@ describe("formatForumPostContent", () => {
     expect(result).toContain("…")
     expect(result).toContain("[View on GitHub](https://github.com/x)")
     expect(result).not.toContain("B".repeat(3901))
+  })
+})
+
+// =============================================================
+// syncSubIssueAdded
+// =============================================================
+
+const parentIssueMap = {
+  id: 10,
+  githubIssueId: 500,
+  githubIssueNumber: 50,
+  discordThreadId: "parent-thread-111",
+  discordFirstMessageId: "parent-msg-111",
+  repo: "owner/repo",
+  createdAt: "2026-01-01",
+  syncedAt: "2026-01-01",
+}
+
+const subIssueMap = {
+  id: 11,
+  githubIssueId: 501,
+  githubIssueNumber: 51,
+  discordThreadId: "sub-thread-222",
+  discordFirstMessageId: "sub-msg-222",
+  repo: "owner/repo",
+  createdAt: "2026-01-01",
+  syncedAt: "2026-01-01",
+}
+
+const subIssueAddedParams = {
+  deliveryId: "d-sub-add-1",
+  parentIssueId: 500,
+  parentIssueNumber: 50,
+  parentIssueTitle: "Parent Issue",
+  parentIssueBody: "Parent body",
+  parentIssueHtmlUrl: "https://github.com/owner/repo/issues/50",
+  subIssueId: 501,
+  subIssueNumber: 51,
+  subIssueTitle: "Sub Issue",
+  subIssueBody: "Sub body",
+  subIssueHtmlUrl: "https://github.com/owner/repo/issues/51",
+  repo: "owner/repo",
+  guildId: "guild-999",
+  forumChannelId: "channel-789",
+}
+
+describe("syncSubIssueAdded", () => {
+  it("posts crosslink notifications when both maps exist", async () => {
+    const deps = createMockDeps()
+    vi.mocked(deps.repository.findIssueMapByGithubIssueId)
+      .mockResolvedValueOnce(parentIssueMap) // parent lookup
+      .mockResolvedValueOnce(subIssueMap) // sub lookup
+
+    await syncSubIssueAdded(subIssueAddedParams, deps)
+
+    expect(deps.discord.postMessage).toHaveBeenCalledTimes(2)
+    expect(deps.discord.postMessage).toHaveBeenCalledWith(
+      "sub-thread-222",
+      expect.stringContaining("#50")
+    )
+    expect(deps.discord.postMessage).toHaveBeenCalledWith(
+      "parent-thread-111",
+      expect.stringContaining("#51")
+    )
+    expect(deps.repository.recordEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "sub_issues.sub_issue_added",
+      })
+    )
+  })
+
+  it("creates forum posts for missing maps (fallback)", async () => {
+    const deps = createMockDeps()
+    vi.mocked(deps.repository.findIssueMapByGithubIssueId)
+      .mockResolvedValueOnce(undefined) // parent not found
+      .mockResolvedValueOnce(parentIssueMap) // parent after creation
+      .mockResolvedValueOnce(undefined) // sub not found
+      .mockResolvedValueOnce(subIssueMap) // sub after creation
+
+    await syncSubIssueAdded(subIssueAddedParams, deps)
+
+    expect(deps.discord.createForumPost).toHaveBeenCalledTimes(2)
+    expect(deps.discord.postMessage).toHaveBeenCalledTimes(2)
+    expect(deps.repository.recordEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "sub_issues.sub_issue_added",
+      })
+    )
+  })
+
+  it("skips notifications if maps still missing after fallback", async () => {
+    const deps = createMockDeps()
+    vi.mocked(deps.repository.findIssueMapByGithubIssueId)
+      .mockResolvedValueOnce(undefined) // parent not found
+      .mockResolvedValueOnce(undefined) // parent still not found after creation
+      .mockResolvedValueOnce(undefined) // sub not found
+      .mockResolvedValueOnce(undefined) // sub still not found after creation
+
+    await syncSubIssueAdded(subIssueAddedParams, deps)
+
+    expect(deps.discord.postMessage).not.toHaveBeenCalled()
+    // Event should still be recorded
+    expect(deps.repository.recordEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "sub_issues.sub_issue_added",
+      })
+    )
+  })
+
+  it("skips when already processed (idempotency)", async () => {
+    const deps = createMockDeps()
+    vi.mocked(deps.repository.hasProcessedEvent).mockResolvedValue(true)
+
+    await syncSubIssueAdded(subIssueAddedParams, deps)
+
+    expect(deps.discord.postMessage).not.toHaveBeenCalled()
+    expect(deps.discord.createForumPost).not.toHaveBeenCalled()
+    expect(deps.repository.recordEvent).not.toHaveBeenCalled()
+  })
+})
+
+// =============================================================
+// syncSubIssueRemoved
+// =============================================================
+
+const subIssueRemovedParams = {
+  deliveryId: "d-sub-rm-1",
+  parentIssueId: 500,
+  parentIssueNumber: 50,
+  subIssueId: 501,
+  subIssueNumber: 51,
+  repo: "owner/repo",
+  guildId: "guild-999",
+}
+
+describe("syncSubIssueRemoved", () => {
+  it("posts removal notifications when both maps exist", async () => {
+    const deps = createMockDeps()
+    vi.mocked(deps.repository.findIssueMapByGithubIssueId)
+      .mockResolvedValueOnce(parentIssueMap) // parent lookup
+      .mockResolvedValueOnce(subIssueMap) // sub lookup
+
+    await syncSubIssueRemoved(subIssueRemovedParams, deps)
+
+    expect(deps.discord.postMessage).toHaveBeenCalledTimes(2)
+    expect(deps.discord.postMessage).toHaveBeenCalledWith(
+      "sub-thread-222",
+      expect.stringContaining("#50")
+    )
+    expect(deps.discord.postMessage).toHaveBeenCalledWith(
+      "parent-thread-111",
+      expect.stringContaining("#51")
+    )
+    expect(deps.repository.recordEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "sub_issues.sub_issue_removed",
+      })
+    )
+  })
+
+  it("skips notifications when either map is missing", async () => {
+    const deps = createMockDeps()
+    vi.mocked(deps.repository.findIssueMapByGithubIssueId)
+      .mockResolvedValueOnce(parentIssueMap) // parent found
+      .mockResolvedValueOnce(undefined) // sub not found
+
+    await syncSubIssueRemoved(subIssueRemovedParams, deps)
+
+    expect(deps.discord.postMessage).not.toHaveBeenCalled()
+    // Event should still be recorded
+    expect(deps.repository.recordEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "sub_issues.sub_issue_removed",
+      })
+    )
+  })
+
+  it("skips when already processed (idempotency)", async () => {
+    const deps = createMockDeps()
+    vi.mocked(deps.repository.hasProcessedEvent).mockResolvedValue(true)
+
+    await syncSubIssueRemoved(subIssueRemovedParams, deps)
+
+    expect(deps.discord.postMessage).not.toHaveBeenCalled()
+    expect(deps.repository.recordEvent).not.toHaveBeenCalled()
   })
 })

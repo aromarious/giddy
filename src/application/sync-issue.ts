@@ -509,3 +509,153 @@ export async function syncIssueCommentDeleted(
     status: "success",
   })
 }
+
+// --- syncSubIssueAdded ---
+
+export interface SyncSubIssueAddedParams {
+  deliveryId: string
+  parentIssueId: number
+  parentIssueNumber: number
+  parentIssueTitle: string
+  parentIssueBody: string | null
+  parentIssueHtmlUrl: string
+  subIssueId: number
+  subIssueNumber: number
+  subIssueTitle: string
+  subIssueBody: string | null
+  subIssueHtmlUrl: string
+  repo: string
+  guildId: string
+  forumChannelId: string
+}
+
+export async function syncSubIssueAdded(
+  params: SyncSubIssueAddedParams,
+  deps: SyncDeps
+): Promise<void> {
+  const idempotencyKey = `github:${params.deliveryId}`
+  if (await deps.repository.hasProcessedEvent(idempotencyKey)) {
+    return
+  }
+
+  // Ensure parent issue has a forum post (race condition fallback)
+  let parentMap = await deps.repository.findIssueMapByGithubIssueId(
+    params.parentIssueId,
+    params.repo
+  )
+  if (!parentMap) {
+    await createForumPostForIssue(
+      {
+        issueId: params.parentIssueId,
+        issueNumber: params.parentIssueNumber,
+        title: params.parentIssueTitle,
+        body: params.parentIssueBody,
+        repo: params.repo,
+        htmlUrl: params.parentIssueHtmlUrl,
+        forumChannelId: params.forumChannelId,
+      },
+      deps
+    )
+    parentMap = await deps.repository.findIssueMapByGithubIssueId(
+      params.parentIssueId,
+      params.repo
+    )
+  }
+
+  // Ensure sub-issue has a forum post (race condition fallback)
+  let subMap = await deps.repository.findIssueMapByGithubIssueId(
+    params.subIssueId,
+    params.repo
+  )
+  if (!subMap) {
+    await createForumPostForIssue(
+      {
+        issueId: params.subIssueId,
+        issueNumber: params.subIssueNumber,
+        title: params.subIssueTitle,
+        body: params.subIssueBody,
+        repo: params.repo,
+        htmlUrl: params.subIssueHtmlUrl,
+        forumChannelId: params.forumChannelId,
+      },
+      deps
+    )
+    subMap = await deps.repository.findIssueMapByGithubIssueId(
+      params.subIssueId,
+      params.repo
+    )
+  }
+
+  if (parentMap && subMap) {
+    const parentUrl = `https://discord.com/channels/${params.guildId}/${parentMap.discordThreadId}`
+    const subUrl = `https://discord.com/channels/${params.guildId}/${subMap.discordThreadId}`
+
+    await deps.discord.postMessage(
+      subMap.discordThreadId,
+      `\u{1F4CC} Parent: [#${params.parentIssueNumber}](${parentUrl})`
+    )
+    await deps.discord.postMessage(
+      parentMap.discordThreadId,
+      `\u{1F4CE} Sub-issue added: [#${params.subIssueNumber}](${subUrl})`
+    )
+  }
+
+  await deps.repository.recordEvent({
+    idempotencyKey,
+    source: "github",
+    eventType: "sub_issues.sub_issue_added",
+    status: "success",
+  })
+}
+
+// --- syncSubIssueRemoved ---
+
+export interface SyncSubIssueRemovedParams {
+  deliveryId: string
+  parentIssueId: number
+  parentIssueNumber: number
+  subIssueId: number
+  subIssueNumber: number
+  repo: string
+  guildId: string
+}
+
+export async function syncSubIssueRemoved(
+  params: SyncSubIssueRemovedParams,
+  deps: SyncDeps
+): Promise<void> {
+  const idempotencyKey = `github:${params.deliveryId}`
+  if (await deps.repository.hasProcessedEvent(idempotencyKey)) {
+    return
+  }
+
+  const parentMap = await deps.repository.findIssueMapByGithubIssueId(
+    params.parentIssueId,
+    params.repo
+  )
+  const subMap = await deps.repository.findIssueMapByGithubIssueId(
+    params.subIssueId,
+    params.repo
+  )
+
+  if (parentMap && subMap) {
+    const parentUrl = `https://discord.com/channels/${params.guildId}/${parentMap.discordThreadId}`
+    const subUrl = `https://discord.com/channels/${params.guildId}/${subMap.discordThreadId}`
+
+    await deps.discord.postMessage(
+      subMap.discordThreadId,
+      `\u{274C} Removed from parent: [#${params.parentIssueNumber}](${parentUrl})`
+    )
+    await deps.discord.postMessage(
+      parentMap.discordThreadId,
+      `\u{274C} Sub-issue removed: [#${params.subIssueNumber}](${subUrl})`
+    )
+  }
+
+  await deps.repository.recordEvent({
+    idempotencyKey,
+    source: "github",
+    eventType: "sub_issues.sub_issue_removed",
+    status: "success",
+  })
+}

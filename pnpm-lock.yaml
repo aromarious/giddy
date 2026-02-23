@@ -11,6 +11,9 @@ importers:
       '@anthropic-ai/sdk':
         specifier: ^0.78.0
         version: 0.78.0(zod@3.25.76)
+      '@octokit/webhooks':
+        specifier: ^14.2.0
+        version: 14.2.0
       discord-hono:
         specifier: ^0.20.3
         version: 0.20.3
