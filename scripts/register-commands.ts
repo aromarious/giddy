@@ -12,7 +12,14 @@ const commands = [
   new Command(
     "create-issue",
     "この Discord スレッドから GitHub Issue を新規作成します"
-  ).options(new Option("title", "Issue タイトル").required()),
+  ).options(
+    new Option("title", "Issue タイトル").required(),
+    new Option("body", "Issue の本文"),
+    new Option("relation", "既存 Issue との関係").choices(
+      { name: "sub", value: "sub" },
+      { name: "link", value: "link" }
+    )
+  ),
 ]
 
 const result = await register(

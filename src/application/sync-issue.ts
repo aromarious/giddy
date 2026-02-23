@@ -1,8 +1,18 @@
 import type { DiscordService } from "@/application/ports/discord-service"
 import type { Repository } from "@/application/ports/repository"
+import { toDiscordMarkdown } from "../infrastructure/shared/markdown"
 
 const TITLE_MAX_LENGTH = 100
 const CONTENT_MAX_LENGTH = 3900
+
+// --- Shared types ---
+
+export interface SyncDeps {
+  discord: DiscordService
+  repository: Repository
+}
+
+// --- syncIssueOpened ---
 
 export interface SyncIssueOpenedParams {
   deliveryId: string
@@ -15,10 +25,7 @@ export interface SyncIssueOpenedParams {
   forumChannelId: string
 }
 
-export interface SyncIssueOpenedDeps {
-  discord: DiscordService
-  repository: Repository
-}
+export type SyncIssueOpenedDeps = SyncDeps
 
 export function formatForumPostTitle(
   issueNumber: number,
@@ -50,6 +57,42 @@ export function formatForumPostContent(
   return `${body}\n\n${link}`
 }
 
+// --- createForumPostForIssue (shared) ---
+
+export interface CreateForumPostForIssueParams {
+  issueId: number
+  issueNumber: number
+  title: string
+  body: string | null
+  repo: string
+  htmlUrl: string
+  forumChannelId: string
+}
+
+export async function createForumPostForIssue(
+  params: CreateForumPostForIssueParams,
+  deps: SyncDeps
+): Promise<{ threadId: string }> {
+  const forumTitle = formatForumPostTitle(params.issueNumber, params.title)
+  const forumContent = formatForumPostContent(params.body, params.htmlUrl)
+
+  const { threadId, messageId } = await deps.discord.createForumPost({
+    channelId: params.forumChannelId,
+    title: forumTitle,
+    content: forumContent,
+  })
+
+  await deps.repository.createIssueMap({
+    githubIssueId: params.issueId,
+    githubIssueNumber: params.issueNumber,
+    discordThreadId: threadId,
+    discordFirstMessageId: messageId,
+    repo: params.repo,
+  })
+
+  return { threadId }
+}
+
 export async function syncIssueOpened(
   params: SyncIssueOpenedParams,
   deps: SyncIssueOpenedDeps
@@ -76,30 +119,393 @@ export async function syncIssueOpened(
     return
   }
 
-  // 3. Create Forum Post
-  const forumTitle = formatForumPostTitle(params.issueNumber, params.title)
-  const forumContent = formatForumPostContent(params.body, params.htmlUrl)
+  // 3. Create Forum Post + Record issue map
+  await createForumPostForIssue(params, deps)
 
-  const { threadId, messageId } = await deps.discord.createForumPost({
-    channelId: params.forumChannelId,
-    title: forumTitle,
-    content: forumContent,
-  })
-
-  // 4. Record issue map
-  await deps.repository.createIssueMap({
-    githubIssueId: params.issueId,
-    githubIssueNumber: params.issueNumber,
-    discordThreadId: threadId,
-    discordFirstMessageId: messageId,
-    repo: params.repo,
-  })
-
-  // 5. Record event log
+  // 4. Record event log
   await deps.repository.recordEvent({
     idempotencyKey,
     source: "github",
     eventType: "issues.opened",
+    status: "success",
+  })
+}
+
+// --- syncIssueEdited ---
+
+export interface SyncIssueEditedParams {
+  deliveryId: string
+  issueId: number
+  issueNumber: number
+  title: string
+  body: string | null
+  repo: string
+  htmlUrl: string
+  changes: {
+    title?: { from: string }
+    body?: { from: string }
+  }
+}
+
+export async function syncIssueEdited(
+  params: SyncIssueEditedParams,
+  deps: SyncDeps
+): Promise<void> {
+  const idempotencyKey = `github:${params.deliveryId}`
+
+  const alreadyProcessed =
+    await deps.repository.hasProcessedEvent(idempotencyKey)
+  if (alreadyProcessed) {
+    console.log(`Skipping already processed event: ${idempotencyKey}`)
+    return
+  }
+
+  const issueMap = await deps.repository.findIssueMapByGithubIssueId(
+    params.issueId,
+    params.repo
+  )
+  if (!issueMap) {
+    console.log(
+      `No issue map found for issue ${params.issueId} in ${params.repo}, skipping edit`
+    )
+    return
+  }
+
+  // Unarchive if needed before editing
+  await deps.discord.unarchiveThread(issueMap.discordThreadId).catch(() => {
+    // Thread may not be archived — ignore error
+  })
+
+  const newTitle = params.changes.title
+    ? formatForumPostTitle(params.issueNumber, params.title)
+    : undefined
+  const newContent = params.changes.body
+    ? formatForumPostContent(params.body, params.htmlUrl)
+    : undefined
+
+  if (issueMap.discordFirstMessageId) {
+    await deps.discord.editForumPost(
+      issueMap.discordThreadId,
+      issueMap.discordFirstMessageId,
+      newTitle,
+      newContent
+    )
+  } else if (newTitle) {
+    // No first message ID — can only update title
+    await deps.discord.editForumPost(
+      issueMap.discordThreadId,
+      "",
+      newTitle,
+      undefined
+    )
+  }
+
+  await deps.repository.updateIssueMapSyncedAt(issueMap.id)
+
+  await deps.repository.recordEvent({
+    idempotencyKey,
+    source: "github",
+    eventType: "issues.edited",
+    status: "success",
+  })
+}
+
+// --- syncIssueClosed ---
+
+export interface SyncIssueClosedParams {
+  deliveryId: string
+  issueId: number
+  repo: string
+  htmlUrl: string
+}
+
+export async function syncIssueClosed(
+  params: SyncIssueClosedParams,
+  deps: SyncDeps
+): Promise<void> {
+  const idempotencyKey = `github:${params.deliveryId}`
+
+  const alreadyProcessed =
+    await deps.repository.hasProcessedEvent(idempotencyKey)
+  if (alreadyProcessed) {
+    console.log(`Skipping already processed event: ${idempotencyKey}`)
+    return
+  }
+
+  const issueMap = await deps.repository.findIssueMapByGithubIssueId(
+    params.issueId,
+    params.repo
+  )
+  if (!issueMap) {
+    console.log(
+      `No issue map found for issue ${params.issueId} in ${params.repo}, skipping close`
+    )
+    return
+  }
+
+  // Unarchive if needed before posting notification
+  await deps.discord.unarchiveThread(issueMap.discordThreadId).catch(() => {
+    // Thread may not be archived — ignore error
+  })
+
+  await deps.discord.postMessage(
+    issueMap.discordThreadId,
+    `\u{1F512} Issue was closed. [View on GitHub](${params.htmlUrl})`
+  )
+
+  await deps.discord.archiveThread(issueMap.discordThreadId)
+
+  await deps.repository.updateIssueMapSyncedAt(issueMap.id)
+
+  await deps.repository.recordEvent({
+    idempotencyKey,
+    source: "github",
+    eventType: "issues.closed",
+    status: "success",
+  })
+}
+
+// --- syncIssueReopened ---
+
+export interface SyncIssueReopenedParams {
+  deliveryId: string
+  issueId: number
+  repo: string
+  htmlUrl: string
+}
+
+export async function syncIssueReopened(
+  params: SyncIssueReopenedParams,
+  deps: SyncDeps
+): Promise<void> {
+  const idempotencyKey = `github:${params.deliveryId}`
+
+  const alreadyProcessed =
+    await deps.repository.hasProcessedEvent(idempotencyKey)
+  if (alreadyProcessed) {
+    console.log(`Skipping already processed event: ${idempotencyKey}`)
+    return
+  }
+
+  const issueMap = await deps.repository.findIssueMapByGithubIssueId(
+    params.issueId,
+    params.repo
+  )
+  if (!issueMap) {
+    console.log(
+      `No issue map found for issue ${params.issueId} in ${params.repo}, skipping reopen`
+    )
+    return
+  }
+
+  await deps.discord.unarchiveThread(issueMap.discordThreadId)
+
+  await deps.discord.postMessage(
+    issueMap.discordThreadId,
+    `\u{1F513} Issue was reopened. [View on GitHub](${params.htmlUrl})`
+  )
+
+  await deps.repository.updateIssueMapSyncedAt(issueMap.id)
+
+  await deps.repository.recordEvent({
+    idempotencyKey,
+    source: "github",
+    eventType: "issues.reopened",
+    status: "success",
+  })
+}
+
+// --- syncIssueCommentCreated ---
+
+export interface SyncIssueCommentCreatedParams {
+  deliveryId: string
+  issueId: number
+  repo: string
+  commentId: number
+  commentBody: string
+  commentUser: string
+  htmlUrl: string
+}
+
+export async function syncIssueCommentCreated(
+  params: SyncIssueCommentCreatedParams,
+  deps: SyncDeps
+): Promise<void> {
+  const idempotencyKey = `github:${params.deliveryId}`
+
+  const alreadyProcessed =
+    await deps.repository.hasProcessedEvent(idempotencyKey)
+  if (alreadyProcessed) {
+    console.log(`Skipping already processed event: ${idempotencyKey}`)
+    return
+  }
+
+  const issueMap = await deps.repository.findIssueMapByGithubIssueId(
+    params.issueId,
+    params.repo
+  )
+  if (!issueMap) {
+    console.log(
+      `No issue map found for issue ${params.issueId} in ${params.repo}, skipping comment`
+    )
+    return
+  }
+
+  // Unarchive if needed before posting
+  await deps.discord.unarchiveThread(issueMap.discordThreadId).catch(() => {
+    // Thread may not be archived — ignore error
+  })
+
+  const body = toDiscordMarkdown(
+    params.commentBody,
+    params.repo,
+    params.htmlUrl
+  )
+  const content = `**${params.commentUser}** commented:\n${body}\n\n[View on GitHub](${params.htmlUrl})`
+
+  const discordMessageId = await deps.discord.postMessage(
+    issueMap.discordThreadId,
+    content
+  )
+
+  await deps.repository.createCommentMap({
+    githubCommentId: params.commentId,
+    discordMessageId,
+    issueMapId: issueMap.id,
+  })
+
+  await deps.repository.updateIssueMapSyncedAt(issueMap.id)
+
+  await deps.repository.recordEvent({
+    idempotencyKey,
+    source: "github",
+    eventType: "issue_comment.created",
+    status: "success",
+  })
+}
+
+// --- syncIssueCommentEdited ---
+
+export interface SyncIssueCommentEditedParams {
+  deliveryId: string
+  issueId: number
+  commentId: number
+  commentBody: string
+  commentUser: string
+  repo: string
+  htmlUrl: string
+}
+
+export async function syncIssueCommentEdited(
+  params: SyncIssueCommentEditedParams,
+  deps: SyncDeps
+): Promise<void> {
+  const idempotencyKey = `github:${params.deliveryId}`
+
+  const alreadyProcessed =
+    await deps.repository.hasProcessedEvent(idempotencyKey)
+  if (alreadyProcessed) {
+    console.log(`Skipping already processed event: ${idempotencyKey}`)
+    return
+  }
+
+  const commentMapRow = await deps.repository.findCommentMapByGithubCommentId(
+    params.commentId
+  )
+  if (!commentMapRow) {
+    console.log(
+      `No comment map found for comment ${params.commentId}, skipping edit`
+    )
+    return
+  }
+
+  const issueMap = await deps.repository.findIssueMapByGithubIssueId(
+    params.issueId,
+    params.repo
+  )
+  if (!issueMap) {
+    console.log(
+      `No issue map found for issue ${params.issueId} in ${params.repo}, skipping comment edit`
+    )
+    return
+  }
+
+  // Unarchive if needed
+  await deps.discord.unarchiveThread(issueMap.discordThreadId).catch(() => {
+    // Thread may not be archived — ignore error
+  })
+
+  const body = toDiscordMarkdown(
+    params.commentBody,
+    params.repo,
+    params.htmlUrl
+  )
+  const content = `**${params.commentUser}** commented:\n${body}\n\n[View on GitHub](${params.htmlUrl})`
+
+  await deps.discord.editMessage(
+    issueMap.discordThreadId,
+    commentMapRow.discordMessageId,
+    content
+  )
+
+  await deps.repository.recordEvent({
+    idempotencyKey,
+    source: "github",
+    eventType: "issue_comment.edited",
+    status: "success",
+  })
+}
+
+// --- syncIssueCommentDeleted ---
+
+export interface SyncIssueCommentDeletedParams {
+  deliveryId: string
+  commentId: number
+  issueId: number
+  repo: string
+}
+
+export async function syncIssueCommentDeleted(
+  params: SyncIssueCommentDeletedParams,
+  deps: SyncDeps
+): Promise<void> {
+  const idempotencyKey = `github:${params.deliveryId}`
+
+  const alreadyProcessed =
+    await deps.repository.hasProcessedEvent(idempotencyKey)
+  if (alreadyProcessed) {
+    console.log(`Skipping already processed event: ${idempotencyKey}`)
+    return
+  }
+
+  const commentMapRow = await deps.repository.findCommentMapByGithubCommentId(
+    params.commentId
+  )
+  if (!commentMapRow) {
+    console.log(
+      `No comment map found for comment ${params.commentId}, skipping delete`
+    )
+    return
+  }
+
+  // Find the issue map to get the thread ID for deletion
+  const issueMap = await deps.repository.findIssueMapByGithubIssueId(
+    params.issueId,
+    params.repo
+  )
+  if (issueMap) {
+    await deps.discord.deleteMessage(
+      issueMap.discordThreadId,
+      commentMapRow.discordMessageId
+    )
+  }
+
+  await deps.repository.deleteCommentMap(params.commentId)
+
+  await deps.repository.recordEvent({
+    idempotencyKey,
+    source: "github",
+    eventType: "issue_comment.deleted",
     status: "success",
   })
 }

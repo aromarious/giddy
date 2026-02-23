@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm"
+import { and, desc, eq, sql } from "drizzle-orm"
 import { type DrizzleD1Database, drizzle } from "drizzle-orm/d1"
 import type {
   CommentMapRow,
@@ -6,7 +6,7 @@ import type {
   Repository,
   SummaryLogRow,
 } from "@/application/ports/repository"
-import { eventLog, issueMap } from "./schema"
+import { commentMap, eventLog, issueMap, summaryLog } from "./schema"
 
 export class D1Repository implements Repository {
   private readonly db: DrizzleD1Database
@@ -40,39 +40,81 @@ export class D1Repository implements Repository {
     return rows[0]
   }
 
-  findIssueMapByDiscordThreadId(
-    _threadId: string
+  async findIssueMapByDiscordThreadId(
+    threadId: string
   ): Promise<IssueMapRow | undefined> {
-    throw new Error("Not implemented")
+    const rows = await this.db
+      .select()
+      .from(issueMap)
+      .where(eq(issueMap.discordThreadId, threadId))
+      .limit(1)
+    return rows[0]
   }
 
-  createCommentMap(_params: {
+  async updateIssueMapSyncedAt(id: number): Promise<void> {
+    await this.db
+      .update(issueMap)
+      .set({ syncedAt: sql`(datetime('now'))` })
+      .where(eq(issueMap.id, id))
+  }
+
+  async createCommentMap(params: {
     githubCommentId: number
     discordMessageId: string
     issueMapId: number
   }): Promise<CommentMapRow> {
-    throw new Error("Not implemented")
+    const [row] = await this.db.insert(commentMap).values(params).returning()
+    return row
   }
 
-  findCommentMapByGithubCommentId(
-    _commentId: number
+  async findCommentMapByGithubCommentId(
+    commentId: number
   ): Promise<CommentMapRow | undefined> {
-    throw new Error("Not implemented")
+    const rows = await this.db
+      .select()
+      .from(commentMap)
+      .where(eq(commentMap.githubCommentId, commentId))
+      .limit(1)
+    return rows[0]
   }
 
-  findCommentMapByDiscordMessageId(
-    _messageId: string
+  async findCommentMapByDiscordMessageId(
+    messageId: string
   ): Promise<CommentMapRow | undefined> {
-    throw new Error("Not implemented")
+    const rows = await this.db
+      .select()
+      .from(commentMap)
+      .where(eq(commentMap.discordMessageId, messageId))
+      .limit(1)
+    return rows[0]
   }
 
-  createSummaryLog(_params: {
+  async deleteCommentMap(githubCommentId: number): Promise<void> {
+    await this.db
+      .delete(commentMap)
+      .where(eq(commentMap.githubCommentId, githubCommentId))
+  }
+
+  async createSummaryLog(params: {
     issueMapId: number
     lastMessageId: string
     githubCommentId: number
     messageCount: number
   }): Promise<SummaryLogRow> {
-    throw new Error("Not implemented")
+    const [row] = await this.db.insert(summaryLog).values(params).returning()
+    return row
+  }
+
+  async findLatestSummaryLog(
+    issueMapId: number
+  ): Promise<SummaryLogRow | undefined> {
+    const rows = await this.db
+      .select()
+      .from(summaryLog)
+      .where(eq(summaryLog.issueMapId, issueMapId))
+      .orderBy(desc(summaryLog.summarizedAt))
+      .limit(1)
+    return rows[0]
   }
 
   async hasProcessedEvent(idempotencyKey: string): Promise<boolean> {

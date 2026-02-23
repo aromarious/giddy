@@ -4,14 +4,18 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy:dev": "wrangler deploy --env dev",
-    "deploy:prod": "wrangler deploy --env production",
+    "dev": "doppler run --config dev -- bash scripts/dev-local.sh",
+    "deploy:dev": "doppler run --config dev -- wrangler deploy --env dev",
+    "deploy:prod": "doppler run --config prd -- wrangler deploy --env production",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "register-commands:dev": "doppler run --config dev -- npx tsx scripts/register-commands.ts",
+    "register-commands:prod": "doppler run --config prd -- npx tsx scripts/register-commands.ts",
+    "db:query:dev": "doppler run --config dev -- wrangler d1 execute giddy-dev --env dev --remote --command",
+    "db:query:prod": "doppler run --config prd -- wrangler d1 execute giddy --env production --remote --command"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.3",

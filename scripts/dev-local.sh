@@ -13,7 +13,13 @@ cleanup() {
 }
 trap cleanup EXIT
 
-env | grep -E "^(GITHUB_|DISCORD_|ANTHROPIC_)" > "$DEV_VARS"
+> "$DEV_VARS"
+for var in $(env | grep -oE "^(GITHUB_|DISCORD_|ANTHROPIC_)[A-Z_]+" | sort -u); do
+  val="$(printenv "$var")"
+  # Collapse multiline values into a single line (e.g. base64-encoded keys)
+  val="$(echo "$val" | tr -d '\n\r')"
+  echo "${var}=${val}" >> "$DEV_VARS"
+done
 echo "Generated ephemeral $DEV_VARS"
 
 npx wrangler dev --env dev --local

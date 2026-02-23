@@ -11,7 +11,12 @@ export interface CreateForumPostResult {
 
 export interface DiscordService {
   createForumPost(params: CreateForumPostParams): Promise<CreateForumPostResult>
-  editForumPost(threadId: string, title: string, content: string): Promise<void>
+  editForumPost(
+    threadId: string,
+    messageId: string,
+    title?: string,
+    content?: string
+  ): Promise<void>
   postMessage(threadId: string, content: string): Promise<string>
   editMessage(
     channelId: string,
@@ -22,6 +27,10 @@ export interface DiscordService {
   archiveThread(threadId: string): Promise<void>
   unarchiveThread(threadId: string): Promise<void>
   getMessages(
-    threadId: string
-  ): Promise<{ id: string; content: string; author: string }[]>
+    threadId: string,
+    after?: string,
+    limit?: number
+  ): Promise<
+    { id: string; content: string; author: { id: string; bot?: boolean } }[]
+  >
 }

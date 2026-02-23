@@ -4,6 +4,7 @@ export interface Env {
 
   // 公開設定（wrangler.toml [vars] or Doppler）
   GITHUB_APP_ID: string
+  GITHUB_INSTALLATION_ID: string
   DISCORD_APPLICATION_ID: string
   GITHUB_REPO: string
   DISCORD_GUILD_ID: string

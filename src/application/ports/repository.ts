@@ -24,6 +24,7 @@ export interface Repository {
   findIssueMapByDiscordThreadId(
     threadId: string
   ): Promise<IssueMapRow | undefined>
+  updateIssueMapSyncedAt(id: number): Promise<void>
 
   // comment_map
   createCommentMap(params: {
@@ -37,6 +38,7 @@ export interface Repository {
   findCommentMapByDiscordMessageId(
     messageId: string
   ): Promise<CommentMapRow | undefined>
+  deleteCommentMap(githubCommentId: number): Promise<void>
 
   // summary_log
   createSummaryLog(params: {
@@ -45,6 +47,7 @@ export interface Repository {
     githubCommentId: number
     messageCount: number
   }): Promise<SummaryLogRow>
+  findLatestSummaryLog(issueMapId: number): Promise<SummaryLogRow | undefined>
 
   // event_log (idempotency)
   hasProcessedEvent(idempotencyKey: string): Promise<boolean>
