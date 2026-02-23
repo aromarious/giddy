@@ -153,7 +153,8 @@ describe("handleCreateIssueCommand", () => {
     expect(deps.discord.createForumPost).toHaveBeenCalledWith({
       channelId: "forum-ch",
       title: "#99 Bug report",
-      content: "[View on GitHub](https://github.com/owner/repo/issues/99)",
+      content:
+        "Created from Discord thread.\n\n[View on GitHub](https://github.com/owner/repo/issues/99)",
     })
     expect(deps.repository.createIssueMap).toHaveBeenCalledWith({
       githubIssueId: 500,

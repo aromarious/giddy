@@ -104,7 +104,7 @@ export async function handleCreateIssueCommand(
       issueId,
       issueNumber,
       title: params.title,
-      body: null,
+      body,
       repo: params.repo,
       htmlUrl,
       forumChannelId: params.forumChannelId,
