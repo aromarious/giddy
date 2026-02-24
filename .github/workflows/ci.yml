@@ -2,12 +2,13 @@ name: CI/CD
 
 on:
   push:
-    branches: [main]
+    tags:
+      - 'v*'
   pull_request:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: read
 
 env:
@@ -67,7 +68,7 @@ jobs:
     name: Deploy
     runs-on: ubuntu-latest
     needs: [lint, test, security]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'aromarious/giddy-app'
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && github.repository == 'aromarious/giddy-app'
     env:
       DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
     steps:
@@ -98,3 +99,8 @@ jobs:
 
       - name: Register Discord commands
         run: pnpm register-commands:prod
+
+      - name: Create GitHub Release
+        run: gh release create "$GITHUB_REF_NAME" --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

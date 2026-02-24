@@ -15,7 +15,8 @@
     "register-commands:dev": "doppler run --config dev -- npx tsx scripts/register-commands.ts",
     "register-commands:prod": "doppler run --config prd -- npx tsx scripts/register-commands.ts",
     "db:query:dev": "doppler run --config dev -- wrangler d1 execute giddy-dev --env dev --remote --command",
-    "db:query:prod": "doppler run --config prd -- wrangler d1 execute giddy --env production --remote --command"
+    "db:query:prod": "doppler run --config prd -- wrangler d1 execute giddy --env production --remote --command",
+    "postinstall": "git config push.followTags true"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.3",
