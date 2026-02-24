@@ -1,0 +1,67 @@
+contexts:
+  - name: Giddy
+    domainVisionStatement: >
+      GitHub Issues と Discord Forum Channel の双方向同期ボット
+    terms:
+      - name: IssueMap
+        aliases:
+          - Issueマッピング
+        definition: >
+          GitHub Issue と Discord フォーラムスレッドの対応関係。
+          Issue 番号・スレッド ID・最初のメッセージ ID を保持する。
+
+      - name: CommentMap
+        aliases:
+          - コメントマッピング
+        definition: >
+          GitHub コメントと Discord メッセージの対応関係。
+          IssueMap に紐づく。
+
+      - name: SummaryLog
+        aliases:
+          - 要約ログ
+        definition: >
+          Discord スレッドの会話を AI で要約し GitHub コメントとして投稿した記録。
+          最後に要約したメッセージ ID を保持し、差分要約に使う。
+
+      - name: EventLog
+        aliases:
+          - イベントログ
+        definition: >
+          Webhook イベントの処理記録。冪等性キー（deliveryId）で
+          同一イベントの重複処理を防ぐ。
+
+      - name: ForumPost
+        aliases:
+          - フォーラム投稿
+        definition: >
+          Discord フォーラムチャンネルに作成されるスレッド。
+          GitHub Issue のタイトルがスレッド名、本文が最初のメッセージになる。
+
+      - name: SubIssue
+        aliases:
+          - サブIssue
+        definition: >
+          GitHub の親子 Issue 関係。親 Issue のスレッドに
+          子 Issue へのクロスリンクが追加される。
+
+      - name: LoopGuard
+        aliases:
+          - ループガード
+        definition: >
+          ボット自身が発生させた Webhook イベントを検知してスキップする仕組み。
+          無限ループを防ぐ。
+
+      - name: DeliveryId
+        aliases:
+          - デリバリーID
+        definition: >
+          GitHub Webhook の X-GitHub-Delivery ヘッダ値。
+          EventLog の冪等性キーとして使う。
+
+      - name: Idempotency
+        aliases:
+          - 冪等性
+        definition: >
+          同一の Webhook を複数回受信しても1回だけ処理される性質。
+          DeliveryId を EventLog に記録して実現する。

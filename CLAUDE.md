@@ -27,3 +27,13 @@ curl https://giddy-dev.aromarious.workers.dev/status
 ```
 
 全チェック OK なら 200、1 つでも NG なら 503 が返る。
+
+## 用語集
+
+ドメイン用語は `giddy.glossary.yml`（リポジトリルート）で管理する。
+コードやドキュメントを書く時はこのファイルを参照し、name/aliases/definition に従った用語を使うこと。
+
+- 新しいドメイン概念が出てきたら glossary ファイルに追加する
+- name は英語 PascalCase、aliases に日本語名を入れる
+- name / aliases には空白やデリミタ（ハイフン、アンダースコア等）を含めない
+- definition はこのプロジェクトの文脈で書く
