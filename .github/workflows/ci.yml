@@ -86,7 +86,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Install Doppler CLI
-        uses: dopplerhq/cli-action@v3
+        uses: dopplerhq/cli-action@v4
 
       - name: Sync runtime secrets to Workers
         run: doppler run --config prd -- sh -c 'doppler secrets download --no-file --format json --config prd | npx wrangler secret bulk --env production'
