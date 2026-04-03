@@ -42,7 +42,7 @@
   },
   "packageManager": "pnpm@9.15.0",
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.78.0",
+    "@anthropic-ai/sdk": "^0.82.0",
     "@octokit/webhooks": "^14.2.0",
     "discord-hono": "^0.20.3",
     "drizzle-orm": "^0.45.1",
