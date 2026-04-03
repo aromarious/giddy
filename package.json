@@ -19,7 +19,7 @@
     "postinstall": "git config push.followTags true"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.3",
+    "@biomejs/biome": "2.4.10",
     "@cloudflare/vitest-pool-workers": "^0.12.14",
     "@cloudflare/workers-types": "^4.20260227.0",
     "@commitlint/cli": "20.4.2",
